@@ -3,15 +3,19 @@ import lark
 grammaire = """
 %import common.SIGNED_NUMBER  //bibliothèque lark.
 %import common.WS
+%import common.ESCAPED_STRING //pour les chaines de caractères
 %ignore WS
 // %ignore /[ ]/   #ignore les blancs, mais l'arbre ne contient pas l'information de leur existence. problématique du pretty printer. 
 
+VARIABLE_STRING : /[s][a-zA-Z 0-9]*/
 VARIABLE : /[a-zA-Z_][a-zA-Z 0-9]*/
 NOMBRE : SIGNED_NUMBER
+STRING : ESCAPED_STRING //il faut créer des STRING_VARIABLE et des INT_VARIABLE pour les différencier avec les STRING_VARIABLE de la forme "sX"
 // NOMBRE : /[1-9][0-9]*/
 OPBINAIRE: /[+*\/&><]/|">="|"-"|">>"  //lark essaie de faire les tokens les plus long possible
 
-expression: VARIABLE -> exp_variable
+expression: VARIABLE_STRING        -> exp_string
+| VARIABLE -> exp_variable
 | NOMBRE         -> exp_nombre
 | expression OPBINAIRE expression -> exp_binaire
 
@@ -77,5 +81,14 @@ def pretty_print(t):
                                                pretty_printer_commande(t.children[1]),
                                                 pretty_printer_expression( t.children[2]))
 
-print(pretty_print(t))
-print(t)
+#print(pretty_print(t))
+#print(t)
+
+t2 = parser.parse("""main(x,y){
+                 printf(sAbc);
+                  return (y);
+                }
+                 """)
+
+#print(pretty_print(t2))
+print(t2)

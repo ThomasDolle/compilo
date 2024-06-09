@@ -100,10 +100,11 @@ def compilAsgt(ast):
 
 def compilPrintf(ast):
     asm = compilExpression(ast.children[0])
+    print(ast.children[0])
     asm += "mov rsi, rax \n"
     asm += "mov rdi, long_format \n"
     asm += "xor rax, rax \n"
-    asm += "call printf \n"
+    asm += "call printf\n"
     return asm
 
 def compilExpression(ast):
@@ -119,4 +120,6 @@ def compilExpression(ast):
                 pop rbx
                 add rax, rbx
                 """
+    elif ast == "STRING":
+        return f"mov rax, fzafdfzau{ast.children[0]}\n"
     return ""
