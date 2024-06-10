@@ -24,6 +24,7 @@ commande : VARIABLE "=" expression ";" -> com_asgt
 | "while" "(" expression ")" "{" commande "}" -> com_while
 | "if" "(" expression ")" "{" commande "}" "else" "{" commande "}" -> com_if
 | "charAt" "(" VARIABLE_STRING "," (NOMBRE | VARIABLE) ")" ";" -> com_charat
+| "len" "(" VARIABLE_STRING ")" ";" -> com_charlen
 
 liste_var : -> liste_vide
 | (VARIABLE_STRING | VARIABLE) ("," (VARIABLE_STRING | VARIABLE))* -> liste_normale

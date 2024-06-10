@@ -81,6 +81,8 @@ def compilCommand(ast):
         asmVar = compilPrintf(ast)
     elif ast.data == "com_charat":
         asmVar = compilCharAt(ast)
+    elif ast.data == "com_charlen":
+        asmVar = compilCharLen(ast)
     return asmVar
 
 def compilWhile(ast):
@@ -133,13 +135,19 @@ def compilExpression(ast):
     elif ast.data ==  "exp_string":
         return f"mov rsi, {ast.children[0].value}\nmov rdi, format\n"
     elif ast.data == "exp_binaire":
-        return f"""
-                {compilExpression(ast.children[2])}
-                push rax
-                {compilExpression(ast.children[0])}
-                pop rbx
-                add rax, rbx
-                """
+        asm = f"""
+    ;OPBINAIIIRES
+    {compilExpression(ast.children[2])}
+    push rax
+    {compilExpression(ast.children[0])}
+    pop rbx
+    add rax, rbx
+    """
+        if ast.children[0].data == "exp_variable":
+            asm += "add rax, rbx\n"
+        elif ast.children[0] == "exp_variable_string":
+            asm += "addSTRING rax, rbx\n"
+        return asm
     return "; expression non reconnue\n"
 
 # Fonction d'assembly pour `charAt`
@@ -155,22 +163,40 @@ def compilCharAt(ast):
         mov     rsi, [{ast.children[1]}]
             """
     asmVar += """
-        mov     rdx, rdi        ; Copy the address of s to rdx
-        mov     rcx, rsi        ; Copy n to rcx
-        mov     rax, 0          ; Clear rax (counter)
+        mov     rdx, rdi
+        mov     rcx, rsi
+        mov     rax, 0 ; initialise l'iterator
         loop_start:
-        cmp     byte [rdx + rax], 0 ; Check for null terminator
-        je      loop_end        ; If null terminator, end loop
-        inc     rax             ; Increment counter
-        cmp     rax, rcx        ; Compare counter with n
-        je      loop_end        ; If counter equals n, end loop
-        jmp     loop_start      ; Otherwise, continue loop
+        cmp     byte [rdx + rax], 0 ; null terminator
+        je      loop_end
+        inc     rax
+        cmp     rax, rcx        ; stop si counter = n
+        je      loop_end
+        jmp     loop_start
         loop_end:
-        movzx   eax, byte [rdx + rax - 1] ; Load the nth character into rax
-        ; Return the nth character in rax
+        movzx   eax, byte [rdx + rax - 1] ; nieme char dans rax
+        
         mov rsi,rax
         mov rdi, long_format 
         xor rax, rax 
         call printf 
         """
     return asmVar
+
+def compilCharLen(ast):
+    return f"""
+        mov rdi, [{ast.children[0]}]
+        mov     rdx, rdi
+        mov     rcx, rsi
+        mov     rax, 0 ; initialise l'iterator
+        loop_start:
+        cmp     byte [rdx + rax], 0 ; null terminator
+        je      loop_end
+        inc     rax
+        jmp loop_start
+        loop_end:
+        mov rsi,rax
+        mov rdi, long_format 
+        xor rax, rax 
+        call printf 
+    """
