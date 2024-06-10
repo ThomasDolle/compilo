@@ -80,10 +80,6 @@ def compilCommand(ast):
         asmVar = compilAsgt(ast)
     elif ast.data == "com_printf":
         asmVar = compilPrintf(ast)
-    elif ast.data == "com_charat":
-        asmVar = compilCharAt(ast)
-    elif ast.data == "com_charlen":
-        asmVar = compilCharLen(ast)
     return asmVar
 
 def compilWhile(ast):
@@ -149,7 +145,13 @@ def compilExpression(ast):
         elif ast.children[0] == "exp_variable_string":
             asm += "addSTRING rax, rbx\n"
         return asm
-    return "; expression non reconnue\n"
+    elif ast.data == "exp_charlen":
+        asm = compilCharLen(ast)
+        return asm
+    elif ast.data == "exp_charat":
+        asm = compilCharAt(ast)
+        return asm
+    return f"; expression non reconnue{ast.data}\n"
 
 # Fonction d'assembly pour `charAt`
 def compilCharAt(ast):
@@ -180,13 +182,11 @@ def compilCharAt(ast):
         movzx   eax, byte [rdx + rax - 1] ; nieme char dans rax
         
         mov rsi,rax
-        mov rdi, long_format 
-        xor rax, rax 
-        call printf 
+        mov rdi, long_format
         """
     return asmVar
 
-def compilCharLen(ast):
+def compilCharLen(ast): #returns the len in rsi
     global cpt
     cpt+=1
     return f"""
@@ -201,7 +201,5 @@ def compilCharLen(ast):
         jmp loop_start{cpt}
         loop_end{cpt}:
         mov rsi,rax
-        mov rdi, long_format 
-        xor rax, rax 
-        call printf 
+        mov rdi, long_format
     """

@@ -17,14 +17,14 @@ expression : VARIABLE_STRING -> exp_variable_string
 | NOMBRE -> exp_nombre
 | STRING -> exp_string
 | expression OPBINAIRE expression -> exp_binaire
+| "len" "(" VARIABLE_STRING ")" -> exp_charlen
+| "charAt" "(" VARIABLE_STRING "," (NOMBRE | VARIABLE) ")" -> exp_charat
 
 commande : VARIABLE "=" expression ";" -> com_asgt
 | "printf" "(" expression ")" ";" -> com_printf
 | commande+ -> com_sequence
 | "while" "(" expression ")" "{" commande "}" -> com_while
 | "if" "(" expression ")" "{" commande "}" "else" "{" commande "}" -> com_if
-| "charAt" "(" VARIABLE_STRING "," (NOMBRE | VARIABLE) ")" ";" -> com_charat
-| "len" "(" VARIABLE_STRING ")" ";" -> com_charlen
 
 liste_var : -> liste_vide
 | (VARIABLE_STRING | VARIABLE) ("," (VARIABLE_STRING | VARIABLE))* -> liste_normale
