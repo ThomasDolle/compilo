@@ -50,9 +50,12 @@ def initMainVar(ast):
         for child in ast.children:
             asmVar += "mov rbx, [argv]\n"
             asmVar += f"mov rdi, [rbx + { 8*(index+1)}]\n"
-            asmVar += f"mov [{child.value}], rdi\n"
-            asmVar += "xor rax, rax\n"
-            asmVar += "call atol\n"
+            if child.type == "VARIABLE":
+                asmVar += "xor rax, rax\n"
+                asmVar += "call atol\n"
+                asmVar += f"mov [{child.value}], rax\n"
+            elif child.type == "VARIABLE_STRING":
+                asmVar += f"mov [{child.value}], rdi\n"
             index += 1
     return asmVar
 
@@ -141,10 +144,16 @@ def compilExpression(ast):
 
 # Fonction d'assembly pour `charAt`
 def compilCharAt(ast):
-    asmVar = f"""
+    if ast.children[1].type == "NOMBRE":
+        asmVar = f"""
+            mov     rdi, [{ast.children[0]}]
+            mov     rsi, {ast.children[1]}
+            """
+    elif ast.children[1].type == "VARIABLE":
+        asmVar = f"""
         mov     rdi, [{ast.children[0]}]
-        mov     rsi, {ast.children[1]}
-        """
+        mov     rsi, [{ast.children[1]}]
+            """
     asmVar += """
         mov     rdx, rdi        ; Copy the address of s to rdx
         mov     rcx, rsi        ; Copy n to rcx
