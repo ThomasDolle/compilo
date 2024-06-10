@@ -1,5 +1,6 @@
 import lark
 
+global cpt
 cpt = 0
 
 op2asm = {"+": "add rax, rbx", "-": "sub rax, rbx"}
@@ -162,18 +163,20 @@ def compilCharAt(ast):
         mov     rdi, [{ast.children[0]}]
         mov     rsi, [{ast.children[1]}]
             """
-    asmVar += """
+    global cpt
+    cpt+=1
+    asmVar += f"""
         mov     rdx, rdi
         mov     rcx, rsi
         mov     rax, 0 ; initialise l'iterator
-        loop_start:
+        loop_start{cpt}:
         cmp     byte [rdx + rax], 0 ; null terminator
-        je      loop_end
+        je      loop_end{cpt}
         inc     rax
         cmp     rax, rcx        ; stop si counter = n
-        je      loop_end
-        jmp     loop_start
-        loop_end:
+        je      loop_end{cpt}
+        jmp     loop_start{cpt}
+        loop_end{cpt}:
         movzx   eax, byte [rdx + rax - 1] ; nieme char dans rax
         
         mov rsi,rax
@@ -184,17 +187,19 @@ def compilCharAt(ast):
     return asmVar
 
 def compilCharLen(ast):
+    global cpt
+    cpt+=1
     return f"""
         mov rdi, [{ast.children[0]}]
         mov     rdx, rdi
         mov     rcx, rsi
         mov     rax, 0 ; initialise l'iterator
-        loop_start:
+        loop_start{cpt}:
         cmp     byte [rdx + rax], 0 ; null terminator
-        je      loop_end
+        je      loop_end{cpt}
         inc     rax
-        jmp loop_start
-        loop_end:
+        jmp loop_start{cpt}
+        loop_end{cpt}:
         mov rsi,rax
         mov rdi, long_format 
         xor rax, rax 
