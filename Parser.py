@@ -23,7 +23,7 @@ commande : VARIABLE "=" expression ";" -> com_asgt
 | commande+ -> com_sequence
 | "while" "(" expression ")" "{" commande "}" -> com_while
 | "if" "(" expression ")" "{" commande "}" "else" "{" commande "}" -> com_if
-| "charAt" "(" (VARIABLE_STRING | STRING) "," NOMBRE ")" -> com_charat
+| "charAt" "(" (VARIABLE_STRING | STRING) "," (NOMBRE | VARIABLE) ")" ";" -> com_charat
 
 liste_var : -> liste_vide
 | (VARIABLE_STRING | VARIABLE) ("," (VARIABLE_STRING | VARIABLE))* -> liste_normale

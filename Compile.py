@@ -76,7 +76,7 @@ def compilCommand(ast):
         asmVar = compilAsgt(ast)
     elif ast.data == "com_printf":
         asmVar = compilPrintf(ast)
-    elif ast.data == "com_charAt":
+    elif ast.data == "com_charat":
         asmVar = compilCharAt(ast)
     return asmVar
 
@@ -140,26 +140,28 @@ def compilExpression(ast):
     return "; expression non reconnue\n"
 
 # Fonction d'assembly pour `charAt`
-def compilCharAt():
-    return """
-    ; charAt(chaine, position)
-    ; Retourne le caractère ASCII à la position donnée dans la chaîne
-    global charAt
-    charAt:
-        push rbp
-        mov rbp, rsp
-        mov rdi, [rbp+16] ; chaîne
-        mov rsi, [rbp+24] ; position
-        add rdi, rsi
-        movzx rax, byte [rdi]
-        pop rbp
-        ret
-    """
-
-# Ajouter le code `charAt` dans le segment de texte
-def compile_with_charAt(ast):
-    asm = compile(ast)
-    asm += charAt()
-    return asm
-
-#print(compile_with_charAt(t))
+def compilCharAt(ast):
+    asmVar = f"""
+        mov     rdi, [{ast.children[0]}]
+        mov     rsi, {ast.children[1]}
+        """
+    asmVar += """
+        mov     rdx, rdi        ; Copy the address of s to rdx
+        mov     rcx, rsi        ; Copy n to rcx
+        mov     rax, 0          ; Clear rax (counter)
+        loop_start:
+        cmp     byte [rdx + rax], 0 ; Check for null terminator
+        je      loop_end        ; If null terminator, end loop
+        inc     rax             ; Increment counter
+        cmp     rax, rcx        ; Compare counter with n
+        je      loop_end        ; If counter equals n, end loop
+        jmp     loop_start      ; Otherwise, continue loop
+        loop_end:
+        movzx   eax, byte [rdx + rax - 1] ; Load the nth character into rax
+        ; Return the nth character in rax
+        mov rsi,rax
+        mov rdi, long_format 
+        xor rax, rax 
+        call printf 
+        """
+    return asmVar
