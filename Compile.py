@@ -133,17 +133,15 @@ def compilExpression(ast):
         return f"mov rsi, {ast.children[0].value}\nmov rdi, format\n"
     elif ast.data == "exp_binaire":
         asm = f"""
-    ;OPBINAIIIRES
     {compilExpression(ast.children[2])}
     push rax
     {compilExpression(ast.children[0])}
     pop rbx
-    add rax, rbx
     """
-        if ast.children[0].data == "exp_variable":
+        if ast.children[0].data == "exp_variable" and ast.children[2].data == "exp_variable":
             asm += "add rax, rbx\n"
-        elif ast.children[0] == "exp_variable_string":
-            asm += "addSTRING rax, rbx\n"
+        else:
+            asm += compilAddStrings(ast)
         return asm
     elif ast.data == "exp_charlen":
         asm = compilCharLen(ast)
@@ -202,4 +200,41 @@ def compilCharLen(ast): #returns the len in rsi
         loop_end{cpt}:
         mov rsi,rax
         mov rdi, long_format
+    """
+
+def compilAddStrings(ast):
+    return f"""
+    mov [argc], rdi
+    mov [argv], rsi
+
+    mov rbx, rsi
+
+    ; Copy str1 to str3
+    mov rsi, [rbx + 8]    ; rsi pointe maintenant sur argv[1]
+    mov rdi, str3         ; Destination str3
+    call copy_string
+
+    ; Append str2 to str3
+    mov rsi, [rbx + 16]        ; Source string 2
+    mov rdi, str3       ; Destination string 3
+    add rdi, 5       ; Move rdi to the end of str1 in str3
+    call copy_string
+
+    ; Print str3 using printf
+    mov rdi, format      ; Format string
+    mov rsi, str3  ; String to print
+    call printf          ; Call printf
+
+    pop rbp
+    xor rax, rax
+    ret
+
+; Function to copy a string from rsi to rdi
+copy_string:
+    copy_loop:
+        lodsb            ; Load byte from rsi into al
+        stosb            ; Store byte in al to rdi
+        test al, al      ; Check if the byte is 0 (end of string)
+        jnz copy_loop   ; If not 0, continue the loop
+    ret
     """
