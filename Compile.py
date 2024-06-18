@@ -62,8 +62,10 @@ def initMainVar(ast):
 
 def compilReturn(ast):
     asm = compilExpression(ast)
-    asm += "mov rsi, rax \n"
-    asm += "mov rdi, long_format \n"
+    if ast.data == "exp_variable_string" or ast.data == "exp_string":
+        asm += f"mov rsi, rax\nmov rdi, format\n"
+    elif ast.data == "exp_variable" or ast.data == "exp_nombre":
+        asm += f"mov rsi, rax\nmov rdi, long_format\n"
     asm += "xor rax, rax \n"
     asm += "call printf \n"
     return asm
@@ -117,28 +119,34 @@ def compilAsgt(ast):
     return asm
 
 def compilPrintf(ast):
+    #print le contenu de rax
     asm = compilExpression(ast.children[0])
+    if ast.children[0].data == "exp_variable_string" or ast.children[0].data == "exp_string":
+        asm += f"mov rsi, rax\nmov rdi, format\n"
+    elif ast.children[0].data == "exp_variable" or ast.children[0].data == "exp_nombre":
+        asm += f"mov rsi, rax\nmov rdi, long_format\n"
     asm += "xor rax, rax \n"
     asm += "call printf \n"
     return asm
 
 def compilExpression(ast):
     if ast.data == "exp_variable_string":
-        return f"mov rsi, [{ast.children[0].value}]\nmov rdi, format\n"
+        return f"mov rax, [{ast.children[0].value}]\n"
     elif ast.data == "exp_variable":
-        return f"mov rsi, [{ast.children[0].value}]\nmov rdi, long_format\n"
+        return f"mov rax, [{ast.children[0].value}]\n"
     elif ast.data ==  "exp_nombre":
-        return f"mov rsi, {ast.children[0].value}\nmov rdi, long_format\n"
+        return f"mov rax, {ast.children[0].value}\n"
     elif ast.data ==  "exp_string":
-        return f"mov rsi, {ast.children[0].value}\nmov rdi, format\n"
+        return f"mov rax, {ast.children[0].value}\n"
     elif ast.data == "exp_binaire":
-        asm = f"""
+        asm = ""
+        if ast.children[0].data == "exp_variable" and ast.children[2].data == "exp_variable":
+            asm += f"""
     {compilExpression(ast.children[2])}
     push rax
     {compilExpression(ast.children[0])}
     pop rbx
     """
-        if ast.children[0].data == "exp_variable" and ast.children[2].data == "exp_variable":
             asm += "add rax, rbx\n"
         else:
             asm += compilAddStrings(ast)
@@ -203,38 +211,53 @@ def compilCharLen(ast): #returns the len in rsi
     """
 
 def compilAddStrings(ast):
-    return f"""
+    global cpt
+    cpt += 3
+    asm = f"""
     mov [argc], rdi
     mov [argv], rsi
 
     mov rbx, rsi
 
     ; Copy str1 to str3
-    mov rsi, [rbx + 8]    ; rsi pointe maintenant sur argv[1]
+    mov rsi, [{ast.children[0].children[0]}]    ; rsi pointe maintenant sur argv[1]
     mov rdi, str3         ; Destination str3
-    call copy_string
-
-    ; Append str2 to str3
-    mov rsi, [rbx + 16]        ; Source string 2
-    mov rdi, str3       ; Destination string 3
-    add rdi, 5       ; Move rdi to the end of str1 in str3
-    call copy_string
-
-    ; Print str3 using printf
-    mov rdi, format      ; Format string
-    mov rsi, str3  ; String to print
-    call printf          ; Call printf
-
-    pop rbp
-    xor rax, rax
-    ret
-
-; Function to copy a string from rsi to rdi
-copy_string:
-    copy_loop:
+    copy_loop{cpt-2}:
         lodsb            ; Load byte from rsi into al
         stosb            ; Store byte in al to rdi
         test al, al      ; Check if the byte is 0 (end of string)
-        jnz copy_loop   ; If not 0, continue the loop
-    ret
+        jnz copy_loop{cpt-2}   ; If not 0, continue the loop
+        
+    ; Append str2 to str3
     """
+    asm += f"""
+    ;Calculate length
+    mov rdi, [{ast.children[0].children[0]}]
+    mov     rdx, rdi
+    mov     rcx, rsi
+    mov     rax, 0 ; initialise l'iterator
+    loop_start{cpt-1}:
+    cmp     byte [rdx + rax], 0 ; null terminator
+    je      loop_end{cpt-1}
+    inc     rax
+    jmp loop_start{cpt-1}
+    loop_end{cpt-1}:
+    """
+    asm += f"""
+    ;Concatenate
+    mov rsi, [{ast.children[2].children[0]}]        ; Source string 2
+    mov rdi, str3       ; Destination string 3
+    add rdi, rax       ; Move rdi to the end of str1 in str3
+    copy_loop{cpt}:
+        lodsb            ; Load byte from rsi into al
+        stosb            ; Store byte in al to rdi
+        test al, al      ; Check if the byte is 0 (end of string)
+        jnz copy_loop{cpt}   ; If not 0, continue the loop
+    
+    mov rax, str3
+    mov rsi, rax
+    mov rdi, format
+    xor rax, rax 
+    call printf ;print le resultat, ne supporte pas l'assignation dans rax par ex (pas compatible avec le printf tel quel)
+    """
+    return asm
