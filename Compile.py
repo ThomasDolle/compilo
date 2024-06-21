@@ -216,7 +216,7 @@ def compilSequence(ast, vars):
 
 def compilAsgt(ast):
     asm =""
-    if ast.children[0].type == "VARIABLE_STRING":
+    if ast.children[1].data == "exp_binaire" and ast.children[0].type=="VARIABLE_STRING":
         asm += f"""
         ; Allocation de mémoire pour [{ast.children[0].value}]
         mov rdi, 100  ; Taille du buffer en octets
@@ -225,7 +225,7 @@ def compilAsgt(ast):
         mov rbx, [{ast.children[0].value}] ;destination rbx pour bien transmettre
         """
     asm += compilExpression(ast.children[1]) #retourné dans [{ast.children[0].value}]
-    if ast.children[0].type != "VARIABLE_STRING":
+    if ast.children[1].data != "exp_binaire" or ast.children[0].type!="VARIABLE_STRING":
         asm += f"mov [{ast.children[0].value}], rax \n"
     return asm
 
