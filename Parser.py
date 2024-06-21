@@ -8,12 +8,12 @@ grammaire = """
 
 OPBINAIRE : /[+*\/&><]/|"<="|">="|"-"|">>"
 VARIABLE : /(?!s)(?!struct_)[a-zA-Z_][a-zA-Z_0-9]*/ // interdit les varibles commençant par struct_ et par s
+VARIABLE_STRING : /[s][a-zA-Z0-9]*/
 ATTRIBUT : /[a-z]+/
 NOMBRE : SIGNED_NUMBER 
 STRUCT : "struct_" VARIABLE "_" VARIABLE // struct_C_X
 STRUCT_ATTRIBUT : STRUCT ("." ATTRIBUT)* // struct_C_X.a
-TYPE : "int " ATTRIBUT | "struct " VARIABLE " " ATTRIBUT // int a | struct C y
-VARIABLE_STRING : /[s][a-zA-Z0-9]*/
+TYPE : "int " ATTRIBUT | "struct " VARIABLE " " ATTRIBUT | "string " ATTRIBUT // int a | struct C y | string s1
 STRING : ESCAPED_STRING
 
 expression : STRUCT -> exp_struct
@@ -26,7 +26,8 @@ expression : STRUCT -> exp_struct
 | "len" "(" VARIABLE_STRING ")" -> exp_charlen
 | "charAt" "(" VARIABLE_STRING "," (NOMBRE | VARIABLE) ")" -> exp_charat
 
-commande : VARIABLE "=" expression ";" -> com_asgt
+commande : VARIABLE_STRING "=" expression ";" -> com_assignation
+| VARIABLE "=" expression ";" -> com_assignation
 | STRUCT_ATTRIBUT "=" expression ";" -> com_assignation_struct_attribut // struct_C_X.a = 5;
 | "printf" "(" expression ")" ";" -> com_printf
 | commande+ -> com_sequence
@@ -34,6 +35,7 @@ commande : VARIABLE "=" expression ";" -> com_asgt
 | "if" "(" expression ")" "{" commande "}" "else" "{" commande "}" -> com_if
 | "struct " STRUCT ";" -> com_struct_declaration
 | "int " VARIABLE ";" -> com_int_declaration
+| "string " VARIABLE_STRING ";" -> com_string_declaration
 
 liste_var : -> liste_vide
 | (VARIABLE_STRING | VARIABLE) ("," (VARIABLE_STRING | VARIABLE))* -> liste_normale

@@ -5,7 +5,7 @@ cpt = 0
 
 def compile(ast):
     asmString = ""
-    asmString = asmString + "extern printf, atoi ; declaration des fonctions externes\n"
+    asmString = asmString + "extern printf, atoi, malloc ; declaration des fonctions externes\n"
     asmString = asmString + "global main ; declaration main\n"
     asmString = asmString + "section .data ; section des donnees\n"
     asmString = asmString + "long_format: db '%lld', 10, 0 ; format pour les int64_t\n"
@@ -45,7 +45,7 @@ def variable_declaration(ast):
 
 # On cherche les déclarations de variables locales dans les commandes
 def cherche_variables_locales(tree):
-    if tree.data in ("com_struct_declaration", "com_int_declaration"):
+    if tree.data in ("com_struct_declaration", "com_int_declaration", "com_string_declaration"):
         return [tree]
     elif tree.data == "com_sequence":
         commands = []
@@ -96,6 +96,13 @@ def variable_locales_declaration(varDict, structDeclar, commandes):
             for attribute in structDict[structName]:
                 varLocalDict[f"{name}"] = "struct"
                 asmVar += creer_variables_asm(name, attribute, structDict, varLocalDict)
+        elif command.data == "com_string_declaration":
+            for child in command.children:
+                if child.value in varDict:
+                    raise Exception(f"Variable {child.value} already declared")
+                else:  
+                    asmVar += f"{child.value}: dq 0\n"
+                    varLocalDict[child.value] = "VARIABLE_STRING"
     return asmVar, varLocalDict
 
 # Fonction pour créer les variables locales des structs (récursivement)
@@ -130,11 +137,30 @@ def initMainVar(vars):
 
 
 def compilReturn(ast):
-    asm = compilExpression(ast)
-    if ast.data == "exp_variable_string" or ast.data == "exp_string":
-        asm += f"mov rsi, rax\nmov rdi, format\n"
+    asm = ""
+    if ast.data == "exp_struct_attribut":
+        transform = ast.value.replace(".", "_")
+        ast.value = transform
+        asm = compilExpression(ast) #l'argument à return se retrouve dans rax
+        asm += "mov rsi, rax\n"
+        asm += f"mov rdi, long_format"
+    elif ast.data == "exp_variable_string" or ast.data == "exp_string":
+        asm = compilExpression(ast) #l'argument à return se retrouve dans rax
+        asm += "mov rsi, rax\n"
+        asm += f"mov rdi, format\n"
     elif ast.data == "exp_variable" or ast.data == "exp_nombre":
-        asm += f"mov rsi, rax\nmov rdi, long_format\n"
+        asm = compilExpression(ast) #l'argument à return se retrouve dans rax
+        asm += "mov rsi, rax\n"
+        asm += f"mov rdi, long_format\n"
+    else:
+        asm=compilExpression(ast)
+        asm += "mov rsi, rax\n"
+        if ast.children[0].data == "exp_variable_string" or ast.children[0].data == "exp_string":
+            asm += f"mov rdi, format\n"
+        elif ast.children[0].data == "exp_variable" or ast.children[0].data == "exp_nombre":
+            asm += f"mov rdi, long_format\n"
+        else:
+            asm+= f"mov rdi, long_format\n"
     asm += "xor rax, rax \n"
     asm += "call printf \n"
     return asm
@@ -170,15 +196,16 @@ def compilWhile(ast, vars):
 def compilIf(ast, vars):
     global cpt
     cpt += 1
+    cptif=cpt
     return f""" 
             {compilExpression(ast.children[0])}
             cmp rax, 0
-            jz else{cpt}
+            jz else{cptif}
             {compilCommand(ast.children[1], vars)}
-            jmp fin{cpt}
-            else{cpt} :
+            jmp fin{cptif}
+            else{cptif}:
             {compilCommand(ast.children[2], vars)}
-            fin{cpt} :
+            fin{cptif}:
         """
 
 def compilSequence(ast, vars):
@@ -188,8 +215,14 @@ def compilSequence(ast, vars):
     return asm
 
 def compilAsgt(ast):
-    asm = compilExpression(ast.children[1])
-    asm += f"mov [{ast.children[0].value}], rax \n"
+    asm = f"""
+    ; Allocation de mémoire pour s3
+    mov rdi, 100  ; Taille du buffer en octets
+    call malloc  ; Appel système pour allouer de la mémoire
+    mov [s3], rax  ; Stocke l'adresse allouée dans s3
+    """
+    asm += f"mov rbx, [{ast.children[0].value}]" #destination rbx
+    asm += compilExpression(ast.children[1]) #retourné dans [{ast.children[0].value}]
     return asm
 
 # On compile les assignations de variables de structs en vérifiant le type des variables
@@ -211,15 +244,25 @@ def compilAssignationStructAttribut(ast, vars):
     return asm
 
 def compilPrintf(ast):
+    asm = compilExpression(ast.children[0]) #l'argument à print se rretrouve dans rax
     if ast.data == "exp_struct_attribut":
         transform = ast.children[0].value.replace(".", "_")
         ast.children[0].value = transform
-    asm = compilExpression(ast.children[0])
+        asm += f"mov rdi, long_format"
     asm += "mov rsi, rax \n"
     if ast.children[0].data == "exp_variable_string" or ast.children[0].data == "exp_string":
         asm += f"mov rdi, format\n"
     elif ast.children[0].data == "exp_variable" or ast.children[0].data == "exp_nombre":
         asm += f"mov rdi, long_format\n"
+    else:
+        asm=compilExpression(ast.children[0])
+        asm += "mov rsi, rax\n"
+        if ast.children[0].data == "exp_variable_string" or ast.children[0].data == "exp_string":
+            asm += f"mov rdi, format\n"
+        elif ast.children[0].data == "exp_variable" or ast.children[0].data == "exp_nombre":
+            asm += f"mov rdi, long_format\n"
+        else:
+            asm += f"mov rdi, long_format\n"
     asm += "xor rax, rax \n"
     asm += "call printf \n"
     return asm
@@ -238,17 +281,19 @@ def compilExpression(ast):
         return f"mov rax, [{ast.children[0].value}]\n"
     elif ast.data == "exp_struct_attribut":
         ast.children[0].value = ast.children[0].value.replace(".", "_")
-        print(f"mov rax, [{ast.children[0].value}]\n")
         return f"mov rax, [{ast.children[0].value}]\n"
     elif ast.data == "exp_binaire":
         if ast.children[1].value == "+":
-            return f"""
-                    {compilExpression(ast.children[2])}
-                    push rax
-                    {compilExpression(ast.children[0])}
-                    pop rbx
-                    add rax, rbx
-                    """
+            if ast.children[0].data == "exp_variable_string" and ast.children[2].data == "exp_variable_string":
+                 return compilAddStrings(ast)
+            else:
+                return f"""
+                        {compilExpression(ast.children[2])}
+                        push rax
+                        {compilExpression(ast.children[0])}
+                        pop rbx
+                        add rax, rbx
+                        """
         elif ast.children[1].value == "-":
             return f"""
                     {compilExpression(ast.children[2])}
@@ -285,6 +330,103 @@ def compilExpression(ast):
                     setl al
                     movzx rax, al
                     """
+        else:
+            return ";opération inconnue\n"
+    elif ast.data == "exp_charat":
+        return compilCharAt(ast)
+    elif ast.data == "exp_charlen":
+        asm = compilCharLen(ast)
+        return asm
     else: 
-        return f";expression inconnue {ast}"
+        return f";expression inconnue {ast}\n"
     return ""
+
+def compilCharAt(ast):
+    asmVar = ""
+    if ast.children[1].type == "NOMBRE":
+        asmVar += f"""
+            mov     rdi, [{ast.children[0]}]
+            mov     rsi, {ast.children[1]}
+            """
+    elif ast.children[1].type == "VARIABLE":
+        asmVar += f"""
+        mov     rdi, [{ast.children[0]}]
+        mov     rsi, [{ast.children[1]}]
+            """
+    global cpt
+    cpt+=1
+    asmVar += f"""
+        mov     rdx, rdi
+        mov     rcx, rsi
+        mov     rax, 0 ; initialise l'iterator
+        loop_start{cpt}:
+        cmp     byte [rdx + rax], 0 ; null terminator
+        je      loop_end{cpt}
+        inc     rax
+        cmp     rax, rcx        ; stop si counter = n
+        je      loop_end{cpt}
+        jmp     loop_start{cpt}
+        loop_end{cpt}:
+        movzx   eax, byte [rdx + rax - 1] ; nieme char dans rax
+        
+        mov rsi,rax
+        mov rdi, long_format
+        """
+    return asmVar
+
+def compilCharLen(ast): #returns the len in rsi
+    global cpt
+    cpt+=1
+    return f"""
+        mov rdi, [{ast.children[0]}]
+        mov     rdx, rdi
+        mov     rcx, rsi
+        mov     rax, 0 ; initialise l'iterator
+        loop_start{cpt}:
+        cmp     byte [rdx + rax], 0 ; null terminator
+        je      loop_end{cpt}
+        inc     rax
+        jmp loop_start{cpt}
+        loop_end{cpt}:
+        mov rsi,rax
+        mov rdi, long_format
+    """
+
+def compilAddStrings(ast):
+    global cpt
+    cpt += 3
+    asm = f"""
+    ; Copy str1 to rbx (fait reference à l'assigné)
+    mov rsi, [{ast.children[0].children[0]}]    ; rsi pointe maintenant sur le premier string (s1)
+    mov rdi, rbx     ; Destination pointée par rbx (début du buffer)
+    copy_loop{cpt-2}:
+        lodsb         ; Charge un octet de rsi dans al
+        stosb         ; Stocke l'octet de al dans rdi
+        test al, al   ; Vérifie si l'octet est nul (fin de chaîne)
+        jnz copy_loop{cpt-2} ; Si non nul, continue la boucle
+
+    ; Concaténation de s2 à s3
+    ; Calcul de la longueur de s1 (dans rbx)
+    mov rdi, [{ast.children[0].children[0]}]
+    mov rdx, rdi     ; rdx = longueur de s1
+    mov rcx, [{ast.children[2].children[0]}]    ; rcx pointe vers s2
+    mov rax, 0       ; Initialise l'itérateur
+
+    loop_start{cpt-1}:
+        cmp byte [rdx + rax], 0  ; Vérifie le terminateur nul de s1
+        je loop_end{cpt-1}
+        inc rax
+        jmp loop_start{cpt-1}
+    loop_end{cpt-1}:
+
+    ; Concaténation réelle de s2 à s3
+    mov rsi, [{ast.children[2].children[0]}]        ; Source s2
+    mov rdi, rbx         ; Destination pointée par rbx (début du buffer)
+    add rdi, rax         ; Déplace rdi à la fin de s1 dans le buffer
+    copy_loop{cpt}:
+        lodsb            ; Charge un octet de rsi dans al
+        stosb            ; Stocke l'octet de al dans rdi
+        test al, al      ; Vérifie si l'octet est nul (fin de chaîne)
+        jnz copy_loop{cpt}   ; Si non nul, continue la boucle
+    """
+    return asm
