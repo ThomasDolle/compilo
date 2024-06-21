@@ -1,0 +1,45 @@
+struct C {int a, int b};
+struct A {int x, struct C y};
+struct B {struct A r};
+main(s1,s2,n,X) {
+    struct struct_C_X;
+    struct struct_A_X;
+    struct struct_B_X;
+    int i;
+    string s3;
+
+    struct_C_X.a = 1;
+
+    if (X > 7) {
+        struct_A_X.y = struct_C_X;
+        struct_A_X.y.b = 2;
+    }
+    else {
+        struct_A_X.y = struct_C_X;
+        struct_A_X.y.b = 4;
+    }
+
+    struct_B_X.r = struct_A_X;
+    while(i < X) {
+        struct_B_X.r.x = 1 + struct_B_X.r.x;
+        i = i + 1;
+        printf(i);
+    }
+
+    printf(struct_B_X.r.x);
+    printf(struct_B_X.r.y.a + struct_B_X.r.y.b); 
+    
+    printf(len(s1)+len(s2));
+    if (len(s1)>n+1) {
+        printf(charAt(s1,n));
+    } else {
+        n=n-len(s1);
+        printf(charAt(s2,n));
+    }
+
+    s3=s1+s2;
+    printf(len(s3));
+    printf(charAt(s3,n));
+
+    return(s3);
+}

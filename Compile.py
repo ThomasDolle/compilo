@@ -215,14 +215,18 @@ def compilSequence(ast, vars):
     return asm
 
 def compilAsgt(ast):
-    asm = f"""
-    ; Allocation de mémoire pour s3
-    mov rdi, 100  ; Taille du buffer en octets
-    call malloc  ; Appel système pour allouer de la mémoire
-    mov [s3], rax  ; Stocke l'adresse allouée dans s3
-    """
-    asm += f"mov rbx, [{ast.children[0].value}]" #destination rbx
+    asm =""
+    if ast.children[0].type == "VARIABLE_STRING":
+        asm += f"""
+        ; Allocation de mémoire pour [{ast.children[0].value}]
+        mov rdi, 100  ; Taille du buffer en octets
+        call malloc  ; Appel système pour allouer de la mémoire
+        mov [{ast.children[0].value}], rax  ; Stocke l'adresse allouée dans [{ast.children[0].value}]
+        mov rbx, [{ast.children[0].value}] ;destination rbx pour bien transmettre
+        """
     asm += compilExpression(ast.children[1]) #retourné dans [{ast.children[0].value}]
+    if ast.children[0].type != "VARIABLE_STRING":
+        asm += f"mov [{ast.children[0].value}], rax \n"
     return asm
 
 # On compile les assignations de variables de structs en vérifiant le type des variables
