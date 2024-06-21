@@ -1,3 +1,10 @@
+Auteurs: Dinojan David & Thomas Dollé
+
+Utilisation du compilateur:
+
+  1. Génération du code assembleur : python main.py code.txt output.asm
+  2. Compilation du code assembleur : nasm -f elf64 -o output.o output.asm && gcc -o output output.o -no-pie && ./output <arguments>
+
 Implémentation de structures et strings :
 
 - Déclaration locale :
@@ -34,6 +41,10 @@ Particularités dans le compilateur :
 - Chercher toutes les variables locales dans le programme et stocker dans un dictionnaire les variables et leur type
 - Ajout d'un argument dans la fonction main qui doit être écrit avant le main pour déclarer les struct
 - Pretty_printer disponible
+
+Gestion des exceptions :
+
+- Faible gestion : nous nous sommes concentrés sur l'implémentation d'un maximum de features aux dépens de la gestion des exceptions
 
 Limites du compilateur : 
 
